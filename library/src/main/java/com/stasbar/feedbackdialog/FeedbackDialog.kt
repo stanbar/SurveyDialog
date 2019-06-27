@@ -5,279 +5,470 @@ import android.content.Context
 import android.content.DialogInterface
 import android.graphics.Color
 import android.graphics.PorterDuff
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Build
-import android.view.View
-import android.view.Window
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.annotation.ColorRes
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
+import android.util.TypedValue
+import android.view.*
+import android.widget.*
+import androidx.annotation.*
 import androidx.core.graphics.drawable.DrawableCompat
+import com.stasbar.feedbackdialog.utils.*
+import com.stasbar.feedbackdialog.utils.inferTheme
+import com.stasbar.feedbackdialog.utils.resolveColor
 
-public class FeedBackDialog(private val context: Context) {
+typealias DialogCallback = (FeedBackDialog) -> Unit
 
-    @DrawableRes
-    private var mIcon: Int = 0
+public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, inferTheme(windowContext)) {
+
+    /** Returns true if auto dismiss is enabled. */
+    var autoDismissEnabled: Boolean = true
+        internal set
+    var titleFont: Typeface? = null
+        internal set
+    var bodyFont: Typeface? = null
+        internal set
+    var buttonFont: Typeface? = null
+        internal set
+    var cancelOnTouchOutside: Boolean = true
+        internal set
+    var cornerRadius: Float? = null
+        internal set
+    @Px
+    private var maxWidth: Int? = null
 
     @ColorRes
-    private var mIconColor: Int = 0
+    var iconsColor: Int? = null
+        internal set
 
-    @StringRes
-    private var mTitle: Int = 0
+    /** The root layout of the dialog. */
+    val view: View
 
-    @DrawableRes
-    private var mBackgroundColor: Int = 0
+    private val positiveListeners = mutableListOf<DialogCallback>()
+    private val negativeListeners = mutableListOf<DialogCallback>()
+    private val neutralListeners = mutableListOf<DialogCallback>()
+    private val cancelListeners = mutableListOf<DialogCallback>()
+    private var constructiveFeedbackListener: ((FeedBackDialog, String) -> Unit)? = null
 
-    @StringRes
-    private var mDescription: Int = 0
+    lateinit var layoutBody: RelativeLayout
 
-    @StringRes
-    private var mReviewQuestion: Int = 0
+    lateinit var ivTitleIcon: ImageView
+    lateinit var tvTitle: TextView
+    lateinit var tvDescription: TextView
+    lateinit var tvQuestion: TextView
 
 
-    lateinit var titleImageView: ImageView
-    lateinit var titleTextView: TextView
-    lateinit var descriptionTextView: TextView
-    lateinit var reviewQuestionTextView: TextView
+    lateinit var layoutPositive: LinearLayout
+    lateinit var layoutNegative: LinearLayout
+    lateinit var layoutNeutral: LinearLayout
 
-    lateinit var positiveFeedbackLayout: LinearLayout
-    lateinit var negativeFeedbackLayout: LinearLayout
-    lateinit var notSureFeedbackLayout: LinearLayout
-    lateinit var feedbackBodyLayout: LinearLayout
 
-    lateinit var positiveFeedbackTextView: TextView
-    lateinit var negativeFeedbackTextView: TextView
-    lateinit var notSureFeedbackTextView: TextView
+    lateinit var tvPositive: TextView
+    lateinit var tvNegative: TextView
+    lateinit var tvNeutral: TextView
 
-    lateinit var positiveFeedbackIconView: ImageView
-    lateinit var negativeFeedbackIconView: ImageView
-    lateinit var notSureFeedbackIconView: ImageView
-    lateinit var etConstructiveCriticism: EditText
+    lateinit var ivPositiveIcon: ImageView
+    lateinit var ivNegativeIcon: ImageView
+    lateinit var ivNeutralIcon: ImageView
+
+    lateinit var etConstructiveFeedback: EditText
 
     lateinit var layoutConstructiveCriticism: LinearLayout
     lateinit var layoutActions: LinearLayout
 
-    @StringRes
-    private var mPositiveFeedbackText: Int = 0
+    lateinit var btnConstructiveFeedback: Button
 
-    @DrawableRes
-    private var mPositiveFeedbackIcon: Int = 0
+    init {
+        val layoutInflater = LayoutInflater.from(windowContext)
 
-    @StringRes
-    private var mNegativeFeedbackText: Int = 0
+        val rootView = layoutInflater.inflate(R.layout.review_dialog_base, null, false)
+        setContentView(rootView)
+        this.view = rootView
+        initiateAllViews()
 
-    @DrawableRes
-    private var mNegativeFeedbackIcon: Int = 0
+        invalidateBackgroundColorAndRadius()
+        initiateListeners()
+    }
 
-    @StringRes
-    private var mnotSureFeedbackText: Int = 0
 
-    @DrawableRes
-    private var mnotSureFeedbackIcon: Int = 0
+    private fun initiateAllViews() {
+        layoutConstructiveCriticism = view.findViewById(R.id.layoutConstructiveCriticism)
+        layoutActions = view.findViewById(R.id.layoutActions)
+        ivTitleIcon = view.findViewById(R.id.ivTitleIcon) as ImageView
+        tvTitle = view.findViewById(R.id.tvTitle)
+        tvDescription = view.findViewById(R.id.tvDescription)
+        tvQuestion = view.findViewById(R.id.tvQuestion)
 
-    private var positiveActionListener: ((Dialog) -> Unit)? = null
-    private var constructiveActionListener: ((Dialog, String) -> Unit)? = null
-    private var neutralActionListener: ((Dialog) -> Unit)? = null
-    lateinit var dialog: Dialog
-    private fun initiateAllViews(dialog: Dialog) {
-        layoutConstructiveCriticism = dialog.findViewById(R.id.layoutConstructiveCriticism)
-        layoutActions = dialog.findViewById(R.id.layoutActions)
-        titleImageView = dialog.findViewById(R.id.review_icon) as ImageView
-        titleTextView = dialog.findViewById(R.id.review_title)
-        descriptionTextView = dialog.findViewById(R.id.review_description)
-        reviewQuestionTextView = dialog.findViewById(R.id.review_questions)
 
-        feedbackBodyLayout = dialog.findViewById(R.id.feedback_body_layout)
-        etConstructiveCriticism = dialog.findViewById(R.id.etConstructiveCriticism)
+        layoutPositive = view.findViewById(R.id.layoutPositive)
+        tvPositive = view.findViewById(R.id.tvPositive)
+        ivPositiveIcon = view.findViewById(R.id.ivPositiveIcon) as ImageView
 
-        positiveFeedbackLayout = dialog.findViewById(R.id.postive_feedback_layout)
-        positiveFeedbackTextView = dialog.findViewById(R.id.positive_feedback_text)
-        positiveFeedbackIconView = dialog.findViewById(R.id.postive_feedback_icon) as ImageView
+        layoutNegative = view.findViewById(R.id.layoutNegative)
+        tvNegative = view.findViewById(R.id.tvNegative)
+        ivNegativeIcon = view.findViewById(R.id.ivNegativeIcon) as ImageView
 
-        negativeFeedbackLayout = dialog.findViewById(R.id.negative_feedback_layout)
-        negativeFeedbackTextView = dialog.findViewById(R.id.negative_feedback_text)
-        negativeFeedbackIconView = dialog.findViewById(R.id.negative_feedback_icon) as ImageView
+        etConstructiveFeedback = view.findViewById(R.id.etConstructiveFeedback)
+        btnConstructiveFeedback = view.findViewById(R.id.btnConstructiveFeedback)
 
-        this.etConstructiveCriticism = dialog.findViewById(R.id.etConstructiveCriticism)
+        tvNeutral = view.findViewById(R.id.not_sure_feedback_text)
+        layoutNeutral = view.findViewById(R.id.not_sure_feedback_layout)
+        ivNeutralIcon = view.findViewById(R.id.not_sure_feedback_icon) as ImageView
 
-        notSureFeedbackTextView = dialog.findViewById(R.id.not_sure_feedback_text)
-        notSureFeedbackLayout = dialog.findViewById(R.id.not_sure_feedback_layout)
-        notSureFeedbackIconView = dialog.findViewById(R.id.not_sure_feedback_icon) as ImageView
+        layoutBody = view.findViewById(R.id.layoutBody)
+
 
     }
 
-    private fun initiateListeners(dialog: Dialog) {
-        positiveFeedbackLayout.setOnClickListener { onPositiveFeedbackClicked(it) }
-        negativeFeedbackLayout.setOnClickListener {
-            onNegativeFeedbackClicked(it)
-        }
-        notSureFeedbackLayout.setOnClickListener { onNotSureFeedbackClicked(it) }
-        dialog.setOnCancelListener { dialog -> onCancelListener(dialog) }
+    private fun initiateListeners() {
+        layoutPositive.setOnClickListener { onPositiveClicked(it) }
+        layoutNegative.setOnClickListener { onNegativeClicked(it) }
+        layoutNeutral.setOnClickListener { onNeutralClicked(it) }
+        setOnCancelListener { dialog -> onCancelListener(dialog) }
+        btnConstructiveFeedback.setOnClickListener { onConstructiveFeedbackClick(it) }
     }
 
-    fun show(): FeedBackDialog {
-        val dialog = Dialog(context, R.style.FeedbackDialog_Theme_Dialog)
+    /**
+     * Set icon on the top of dialog
+     *
+     * @param res The drawable resource to display as the drawable.
+     * @param drawable The drawable to display as the drawable.
+     */
+    fun icon(
+            @DrawableRes iconRes: Int? = null,
+            icon: Drawable? = null,
+            @ColorRes colorRes: Int? = null
+    ): FeedBackDialog {
+        assertOneSet("icon", icon, iconRes)
+        val drawable = resolveDrawable(windowContext, res = iconRes, fallback = icon)
+        if (drawable != null) {
+            ivTitleIcon.show()
+            val layerDrawable = resolveDrawable(windowContext, res = R.drawable.fd_round_icon) as LayerDrawable
+            val gradientDrawable = layerDrawable.findDrawableByLayerId(R.id.round_background) as GradientDrawable
+            gradientDrawable.setColor(Color.parseColor("#FFFFFF"))
+            layerDrawable.setDrawableByLayerId(R.id.round_background, gradientDrawable)
 
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(R.layout.review_dialog_base)
+            val color = iconsColor ?: resolveColor(colorRes, fallback = { R.color.colorPrimary })
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                DrawableCompat.setTint(drawable.mutate(), color)
+            } else {
+                drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+            }
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            val width = (context.resources.displayMetrics.widthPixels * 0.90).toInt()
-            val height = (context.resources.displayMetrics.heightPixels * 0.50).toInt()
-            dialog.window?.setLayout(width, height)
+
+            layerDrawable.setDrawableByLayerId(R.id.drawable_image, drawable)
+            ivTitleIcon.setImageDrawable(layerDrawable)
+        } else {
+            ivTitleIcon.hide()
         }
 
-        initiateAllViews(dialog)
-        initiateListeners(dialog)
 
-        val layerDrawable = context.resources.getDrawable(R.drawable.reviewdialog_round_icon) as LayerDrawable
-        val gradientDrawable = layerDrawable.findDrawableByLayerId(R.id.round_background) as GradientDrawable
-        gradientDrawable.setColor(Color.parseColor("#FFFFFF"))
-        layerDrawable.setDrawableByLayerId(R.id.round_background, gradientDrawable)
+        return this
+    }
 
-        val drawable = context.resources.getDrawable(this.mIcon)
-        val wrappedDrawable = DrawableCompat.wrap(drawable)
+    /**
+     * Set color of icon on the top of dialog
+     *
+     * @param res The color resource to display as the drawable.
+     * @param drawable The drawable to display as the drawable.
+     */
+    fun iconsColor(
+            @ColorRes colorRes: Int
+    ): FeedBackDialog {
+        @ColorInt val color = resolveColor(windowContext, res = colorRes)
+        iconsColor = color
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            DrawableCompat.setTint(drawable.mutate(), context.resources.getColor(mIconColor))
+            DrawableCompat.setTint(ivTitleIcon.drawable.mutate(), color) //TODO should we mutate() here ?
+            DrawableCompat.setTint(ivPositiveIcon.drawable.mutate(), color) //TODO should we mutate() here ?
+            DrawableCompat.setTint(ivNegativeIcon.drawable.mutate(), color) //TODO should we mutate() here ?
+            DrawableCompat.setTint(ivNeutralIcon.drawable.mutate(), color) //TODO should we mutate() here ?
         } else {
-            drawable.setColorFilter(context.resources.getColor(mIconColor), PorterDuff.Mode.SRC_IN)
+            //TODO or maybe color filter is sufficient ?
+            ivTitleIcon.drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+            ivPositiveIcon.drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+            ivNegativeIcon.drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+            ivNeutralIcon.drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN)
         }
 
+        return this
+    }
 
-        layerDrawable.setDrawableByLayerId(R.id.drawable_image, drawable)
+    /**
+     * Shows a title, or header, at the top of the dialog.
+     *
+     * @param res The string resource to display as the title.
+     * @param text The literal string to display as the title.
+     */
+    fun title(
+            @StringRes res: Int? = null,
+            text: String? = null
+    ): FeedBackDialog {
+        assertOneSet("title", text, res)
+        val value = text ?: resolveString(this, res)
+        if (value != null) {
+            (tvTitle.parent as View).visibility = View.VISIBLE
+            tvTitle.show()
+            tvTitle.text = value
+        } else {
+            tvTitle.hide()
+        }
+        return this
+    }
 
-        titleImageView.setImageDrawable(layerDrawable)
-        titleTextView.text = context.getString(this.mTitle)
-        descriptionTextView.text = context.getString(this.mDescription)
-        reviewQuestionTextView.text = context.getString(this.mReviewQuestion)
+    /**
+     * Shows a description, below the title, and above the question.
+     *
+     * @param res The string resource to display as the message.
+     * @param text The literal string to display as the message.
+     */
+    fun description(
+            @StringRes res: Int? = null,
+            text: CharSequence? = null
+    ): FeedBackDialog {
+        assertOneSet("description", text, res)
+        val value = text ?: resolveString(this, res)
+        if (value != null) {
+            (tvDescription.parent as View).visibility = View.VISIBLE
+            tvDescription.show()
+            tvDescription.text = value
+        } else {
+            tvDescription.hide()
+        }
+        return this
+    }
 
-        positiveFeedbackTextView.setText(this.mPositiveFeedbackText)
-        positiveFeedbackIconView.setImageResource(this.mPositiveFeedbackIcon)
-        positiveFeedbackIconView.setColorFilter(context.resources.getColor(mIconColor))
+    /**
+     * Shows a question, below the title and description, and above the action buttons (and checkbox prompt).
+     *
+     * @param res The string resource to display as the message.
+     * @param text The literal string to display as the message.
+     */
+    fun question(
+            @StringRes res: Int? = null,
+            text: CharSequence? = null
+    ): FeedBackDialog {
+        assertOneSet("question", text, res)
+        val value = text ?: resolveString(this, res)
+        if (value != null) {
+            (tvQuestion.parent as View).visibility = View.VISIBLE
+            tvQuestion.show()
+            tvQuestion.text = value
+        } else {
+            tvQuestion.hide()
+        }
+        return this
+    }
 
-        negativeFeedbackTextView.setText(this.mNegativeFeedbackText)
-        negativeFeedbackIconView.setImageResource(this.mNegativeFeedbackIcon)
-        negativeFeedbackIconView.setColorFilter(context.resources.getColor(mIconColor))
+    /**
+     * Shows a positive action button, in the far right at the bottom of the dialog.
+     *
+     * @param res The string resource to display on the title.
+     * @param text The literal string to display on the button.
+     * @param iconRes The icon resource to display above text.
+     * @param click A listener to invoke when the button is pressed.
+     */
+    fun positiveButton(
+            @StringRes res: Int? = null,
+            text: CharSequence? = null,
+            @DrawableRes iconRes: Int? = null,
+            click: DialogCallback? = null
+    ): FeedBackDialog {
+        if (click != null) {
+            positiveListeners.add(click)
+        }
 
-        notSureFeedbackTextView.setText(this.mnotSureFeedbackText)
-        notSureFeedbackIconView.setImageResource(this.mnotSureFeedbackIcon)
-        notSureFeedbackIconView.setColorFilter(context.resources.getColor(mIconColor))
+        if (res == null && text == null && layoutPositive.visibility == View.VISIBLE) {
+            // Didn't receive text and the button is already setup,
+            // so just stop with the added listener.
+            return this
+        }
+        assertOneSet("positive", text, res)
+        val value = text ?: resolveString(this, res, android.R.string.ok)
 
-        feedbackBodyLayout.setBackgroundResource(this.mBackgroundColor)
+        tvPositive.text = value
+        resolveDrawable(windowContext, res = iconRes)?.let { drawable ->
+            ivPositiveIcon.setImageDrawable(drawable)
+            iconsColor?.let { color -> ivPositiveIcon.setColorFilter(color) }
+        }
+        return this
+    }
 
-        dialog.show()
-        this.dialog = dialog
+    /**
+     * Shows a negative action button, in the middle at the bottom of the dialog.
+     *
+     * @param res The string resource to display on the title.
+     * @param text The literal string to display on the button.
+     * @param iconRes The icon resource to display above text.
+     * @param click A listener to invoke when the button is pressed.
+     */
+    fun negativeButton(
+            @StringRes res: Int? = null,
+            text: CharSequence? = null,
+            @DrawableRes iconRes: Int? = null,
+            click: DialogCallback? = null
+    ): FeedBackDialog {
+        if (click != null) {
+            negativeListeners.add(click)
+        }
+
+        if (res == null && text == null && layoutPositive.visibility == View.VISIBLE) {
+            // Didn't receive text and the button is already setup,
+            // so just stop with the added listener.
+            return this
+        }
+        assertOneSet("negative", text, res)
+        val value = text ?: resolveString(this, res, android.R.string.ok)
+        tvNegative.text = value
+        resolveDrawable(windowContext, res = iconRes)?.let { drawable ->
+            ivPositiveIcon.setImageDrawable(drawable)
+            iconsColor?.let { color -> ivPositiveIcon.setColorFilter(color) }
+        }
+        return this
+    }
+
+    var showConstructiveFeedback: Boolean = false
+    /**
+     * Shows a edit text for entering constructive critics
+     * @param callback A callback to invoke when send button is pressed.
+     */
+    fun constructiveFeedback(
+            callback: (FeedBackDialog, String) -> Unit
+    ): FeedBackDialog {
+        showConstructiveFeedback = true
+        constructiveFeedbackListener = callback
+        return this
+    }
+
+    /**
+     * Shows a neutral action button, in the middle at the bottom of the dialog.
+     *
+     * @param res The string resource to display on the title.
+     * @param text The literal string to display on the button.
+     * @param iconRes The icon resource to display above text.
+     * @param click A listener to invoke when the button is pressed.
+     */
+    fun neutralButton(
+            @StringRes res: Int? = null,
+            text: CharSequence? = null,
+            @DrawableRes iconRes: Int? = null,
+            click: DialogCallback? = null
+    ): FeedBackDialog {
+        if (click != null) {
+            neutralListeners.add(click)
+        }
+
+        if (res == null && text == null && layoutPositive.visibility == View.VISIBLE) {
+            // Didn't receive text and the button is already setup,
+            // so just stop with the added listener.
+            return this
+        }
+        assertOneSet("neutral", text, res)
+        val value = text ?: resolveString(this, res, android.R.string.ok)
+
+        tvNeutral.text = value
+        resolveDrawable(windowContext, res = iconRes)?.let { drawable ->
+            ivPositiveIcon.setImageDrawable(drawable)
+            iconsColor?.let { color -> ivPositiveIcon.setColorFilter(color) }
+        }
         return this
     }
 
 
-    fun setIcon(mIcon: Int): FeedBackDialog {
-        this.mIcon = mIcon
+    /**
+     * Sets the corner radius for the dialog, or the rounding of the corners. Dialogs can choose
+     * how they want to handle this, e.g. bottom sheets will only round the top left and right
+     * corners.
+     */
+    fun cornerRadius(
+            literalDp: Float? = null,
+            @DimenRes res: Int? = null
+    ): FeedBackDialog {
+        assertOneSet("cornerRadius", literalDp, res)
+        this.cornerRadius = if (res != null) {
+            windowContext.resources.getDimension(res)
+        } else {
+            val displayMetrics = windowContext.resources.displayMetrics
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, literalDp!!, displayMetrics)
+        }
+        invalidateBackgroundColorAndRadius()
         return this
     }
 
 
-    fun setTitle(mTitle: Int): FeedBackDialog {
-        this.mTitle = mTitle
-        return this
+    /** Opens the dialog. */
+    override fun show() {
+        setWindowConstraints()
+        super.show()
     }
 
+    private fun setWindowConstraints() {
+        if (maxWidth == 0) {
+            // Postpone
+            return
+        }
 
-    fun setDescription(mDescription: Int): FeedBackDialog {
-        this.mDescription = mDescription
-        return this
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val lp = WindowManager.LayoutParams().apply {
+            copyFrom(window.attributes)
+            width = (windowContext.resources.displayMetrics.widthPixels * 0.90).toInt()
+            height = (windowContext.resources.displayMetrics.heightPixels * 0.50).toInt()
+        }
+        window.attributes = lp
     }
 
-
-    fun setPositiveFeedbackText(@StringRes mPositiveFeedbackText: Int): FeedBackDialog {
-        this.mPositiveFeedbackText = mPositiveFeedbackText
-        return this
+    private fun onPositiveClicked(view: View) {
+        positiveListeners.invokeAll(this)
     }
 
-
-    fun setPositiveFeedbackIcon(@DrawableRes mPositiveFeedbackIcon: Int): FeedBackDialog {
-        this.mPositiveFeedbackIcon = mPositiveFeedbackIcon
-        return this
+    private fun onNegativeClicked(view: View) {
+        negativeListeners.invokeAll(this)
+        if (showConstructiveFeedback) {
+            showConstructiveFeedbackLayout()
+        }
     }
 
-
-    fun setNegativeFeedbackText(@StringRes mNegativeFeedbackText: Int): FeedBackDialog {
-        this.mNegativeFeedbackText = mNegativeFeedbackText
-        return this
+    private fun showConstructiveFeedbackLayout() {
+        layoutActions.hide()
+        layoutConstructiveCriticism.show()
+        //TODO animate
     }
 
-    fun setNegativeFeedbackIcon(@DrawableRes mNegativeFeedbackIcon: Int): FeedBackDialog {
-        this.mNegativeFeedbackIcon = mNegativeFeedbackIcon
-        return this
+    private fun hideConstructiveFeedbackLayout() {
+        etConstructiveFeedback.text.clear()
+        layoutConstructiveCriticism.hide()
+        layoutActions.show()
+        //TODO animate
     }
 
-    fun setNotSureFeedbackText(@StringRes mnotSureFeedbackText: Int): FeedBackDialog {
-        this.mnotSureFeedbackText = mnotSureFeedbackText
-        return this
-    }
-
-    fun setNotSureFeedbackIcon(@DrawableRes mnotSureFeedbackIcon: Int): FeedBackDialog {
-        this.mnotSureFeedbackIcon = mnotSureFeedbackIcon
-        return this
-    }
-
-    fun setBackgroundColor(@ColorRes mBackgroundColor: Int): FeedBackDialog {
-        this.mBackgroundColor = mBackgroundColor
-        return this
-    }
-
-    fun setIconColor(@ColorRes mIconColor: Int): FeedBackDialog {
-        this.mIconColor = mIconColor
-        return this
-    }
-
-    fun setReviewQuestion(mReviewQuestion: Int): FeedBackDialog {
-        this.mReviewQuestion = mReviewQuestion
-        return this
-    }
-
-    fun setOnPositiveClickListener(positiveActionListener: (Dialog) -> Unit) {
-        this.positiveActionListener = positiveActionListener
-    }
-
-    fun setOnConstructiveClickListener(constructiveActionListener: (Dialog, String) -> Unit) {
-        this.constructiveActionListener = constructiveActionListener
-    }
-
-    fun setOnNeutralClickListener(neutralActionListener: (Dialog) -> Unit) {
-        this.neutralActionListener = neutralActionListener
-    }
-
-    fun dismiss() {
-        dialog.dismiss()
-    }
-
-    private fun onPositiveFeedbackClicked(view: View) {
-        positiveActionListener?.invoke(dialog)
-    }
-
-    private fun onNegativeFeedbackClicked(view: View) {
-        layoutActions.visibility = View.GONE
-        layoutConstructiveCriticism.visibility = View.VISIBLE
+    private fun onNeutralClicked(view: View) {
+        neutralListeners.invokeAll(this)
     }
 
     private fun onConstructiveFeedbackClick(view: View) {
-        val suggestion = etConstructiveCriticism.text.toString()
-        constructiveActionListener?.invoke(dialog, suggestion)
-    }
+        val suggestion = etConstructiveFeedback.text.toString()
+        constructiveFeedbackListener?.invoke(this, suggestion)
+        hideConstructiveFeedbackLayout()
 
-    private fun onNotSureFeedbackClicked(view: View) {
-        neutralActionListener?.invoke(dialog)
     }
 
     private fun onCancelListener(dialog: DialogInterface) {
+        cancelListeners.invokeAll(this)
+    }
 
+    private fun invalidateBackgroundColorAndRadius() {
+        val backgroundColor = resolveColor(attr = R.attr.colorBackgroundFloating)
+        val cornerRounding =
+                cornerRadius ?: resolveDimen(windowContext, attr = R.attr.fd_corner_radius)
+        window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        layoutBody.background = GradientDrawable().apply {
+            cornerRadius = cornerRounding
+            setColor(backgroundColor)
+        }
 
     }
 }
+

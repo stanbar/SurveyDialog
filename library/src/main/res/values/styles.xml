@@ -1,8 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="FD_Light" parent="Theme.AppCompat.Light.Dialog.Alert"
+        tools:ignore="PrivateResource">
+        <item name="android:windowMinWidthMajor">@dimen/abc_dialog_min_width_major</item>
+        <item name="android:windowMinWidthMinor">@dimen/abc_dialog_min_width_minor</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:actionModeBackground">@color/primary_material_dark</item>
+        <item name="android:actionModeCloseDrawable">@drawable/fd_nav_back</item>
+        <item name="android:windowNoTitle">true</item>
+
+        <item name="android:windowAnimationStyle">@style/FD_WindowAnimation</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
+    <style name="FD_Dark" parent="Theme.AppCompat.Dialog.Alert"
+        tools:ignore="PrivateResource">
+        <item name="android:windowMinWidthMajor">@dimen/abc_dialog_min_width_major</item>
+        <item name="android:windowMinWidthMinor">@dimen/abc_dialog_min_width_minor</item>
+
+        <item name="android:actionModeBackground">@color/primary_material_dark</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:actionModeCloseDrawable">@drawable/fd_nav_back</item>
+
+        <item name="android:windowAnimationStyle">@style/FD_WindowAnimation</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+
+
+
     <style name="FeedbackDialog_Theme_Dialog" parent="Theme.AppCompat.Dialog">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowMinWidthMajor">90%</item>
         <item name="android:windowMinWidthMinor">90%</item>
+    </style>
+
+
+    <style name="FD_WindowAnimation">
+        <item name="android:windowEnterAnimation">@anim/popup_enter</item>
+        <item name="android:windowExitAnimation">@anim/popup_exit</item>
     </style>
 </resources>

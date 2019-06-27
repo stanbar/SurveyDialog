@@ -26,6 +26,7 @@ package com.stasbar.prompter
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import com.stasbar.feedbackdialog.FeedBackDialog
 import kotlinx.android.synthetic.main.activity_main.*
 
@@ -35,7 +36,27 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        container.setOnClickListener { FeedBackDialog(this).show() }
+        button.setOnClickListener {
+            FeedBackDialog(this)
+                    .positiveButton(res = R.string.positive_text, iconRes = R.drawable.ic_android) {
+                        Log.d("MainActivity", "positiveButton")
+                    }
+                    .negativeButton(res = R.string.negative_text, iconRes = R.drawable.ic_block) {
+                        Log.d("MainActivity", "negativeButton")
+                    }
+                    .neutralButton(res = R.string.neutral){
+                        Log.d("MainActivity", "neutral")
+                    }
+                    .constructiveFeedback { feedBackDialog, s ->
+                        Log.d("MainActivity", "constructiveFeedback $s")
+                    }
+                    .iconsColor(R.color.colorPrimary)
+                    .title(res = R.string.title)
+                    .icon(iconRes = R.drawable.ic_beach)
+                    .description(res = R.string.description)
+                    .question(res = R.string.question)
+                    .show()
+        }
 
 
     }

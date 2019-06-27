@@ -16,4 +16,11 @@
 
 <resources>
     <string name="app_name">Prompter</string>
+    <string name="positive_text">Awesome</string>
+    <string name="negative_text">Nope</string>
+    <string name="title">Test</string>
+    <string name="description">Description</string>
+    <string name="question">Do you like this library ?</string>
+    <string name="neutral">Not Sure</string>
+
 </resources>
