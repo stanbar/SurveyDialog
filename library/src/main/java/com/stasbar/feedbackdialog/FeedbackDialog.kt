@@ -11,29 +11,43 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Build
+import android.provider.Telephony
+import android.util.Log
 import android.util.TypedValue
 import android.view.*
 import android.widget.*
 import androidx.annotation.*
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.lifecycle.*
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
 import com.stasbar.feedbackdialog.utils.*
 import com.stasbar.feedbackdialog.utils.inferTheme
 import com.stasbar.feedbackdialog.utils.resolveColor
+import java.util.*
+import kotlin.properties.ObservableProperty
+import kotlin.reflect.KProperty
 
 typealias DialogCallback = (FeedBackDialog) -> Unit
+
+enum class FeedbackDialogState {
+    RATE, CONSTRUCTIVE_CRITICISM
+}
+
+class ObservableState(initialState: FeedbackDialogState) : Observable() {
+    var value: FeedbackDialogState = initialState
+        set(value) {
+            field = value
+            setChanged()
+            notifyObservers(value)
+        }
+
+}
 
 public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, inferTheme(windowContext)) {
 
     /** Returns true if auto dismiss is enabled. */
     var autoDismissEnabled: Boolean = true
-        internal set
-    var titleFont: Typeface? = null
-        internal set
-    var bodyFont: Typeface? = null
-        internal set
-    var buttonFont: Typeface? = null
-        internal set
-    var cancelOnTouchOutside: Boolean = true
         internal set
     var cornerRadius: Float? = null
         internal set
@@ -46,6 +60,7 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
 
     /** The root layout of the dialog. */
     val view: View
+
 
     private val positiveListeners = mutableListOf<DialogCallback>()
     private val negativeListeners = mutableListOf<DialogCallback>()
@@ -74,12 +89,14 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
     lateinit var ivNegativeIcon: ImageView
     lateinit var ivNeutralIcon: ImageView
 
-    lateinit var etConstructiveFeedback: EditText
+    lateinit var etConstructiveFeedback: TextInputEditText
 
     lateinit var layoutConstructiveCriticism: LinearLayout
     lateinit var layoutActions: LinearLayout
 
-    lateinit var btnConstructiveFeedback: Button
+    lateinit var btnConstructiveFeedback: ImageButton
+
+    val state = ObservableState(FeedbackDialogState.RATE)
 
     init {
         val layoutInflater = LayoutInflater.from(windowContext)
@@ -88,7 +105,7 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
         setContentView(rootView)
         this.view = rootView
         initiateAllViews()
-
+        setCancelable(true)
         invalidateBackgroundColorAndRadius()
         initiateListeners()
     }
@@ -120,7 +137,6 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
 
         layoutBody = view.findViewById(R.id.layoutBody)
 
-
     }
 
     private fun initiateListeners() {
@@ -129,6 +145,28 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
         layoutNeutral.setOnClickListener { onNeutralClicked(it) }
         setOnCancelListener { dialog -> onCancelListener(dialog) }
         btnConstructiveFeedback.setOnClickListener { onConstructiveFeedbackClick(it) }
+        state.addObserver { _, newState -> setupState(newState as FeedbackDialogState) }
+
+    }
+
+    private fun setupState(newState: FeedbackDialogState) {
+        when (newState) {
+            FeedbackDialogState.RATE -> {
+                layoutActions.show()
+                layoutConstructiveCriticism.hide()
+            }
+            FeedbackDialogState.CONSTRUCTIVE_CRITICISM -> {
+                layoutActions.hide()
+                layoutConstructiveCriticism.show()
+            }
+        }
+    }
+
+    override fun onBackPressed() {
+        if (state.value != FeedbackDialogState.RATE)
+            state.value = FeedbackDialogState.RATE
+        else
+            super.onBackPressed()
     }
 
     /**
@@ -427,21 +465,8 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
     private fun onNegativeClicked(view: View) {
         negativeListeners.invokeAll(this)
         if (showConstructiveFeedback) {
-            showConstructiveFeedbackLayout()
+            state.value = FeedbackDialogState.CONSTRUCTIVE_CRITICISM
         }
-    }
-
-    private fun showConstructiveFeedbackLayout() {
-        layoutActions.hide()
-        layoutConstructiveCriticism.show()
-        //TODO animate
-    }
-
-    private fun hideConstructiveFeedbackLayout() {
-        etConstructiveFeedback.text.clear()
-        layoutConstructiveCriticism.hide()
-        layoutActions.show()
-        //TODO animate
     }
 
     private fun onNeutralClicked(view: View) {
@@ -451,8 +476,8 @@ public class FeedBackDialog(val windowContext: Context) : Dialog(windowContext, 
     private fun onConstructiveFeedbackClick(view: View) {
         val suggestion = etConstructiveFeedback.text.toString()
         constructiveFeedbackListener?.invoke(this, suggestion)
-        hideConstructiveFeedbackLayout()
-
+        etConstructiveFeedback.text?.clear()
+        state.value = FeedbackDialogState.RATE
     }
 
     private fun onCancelListener(dialog: DialogInterface) {

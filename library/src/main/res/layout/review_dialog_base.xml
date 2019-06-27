@@ -81,9 +81,9 @@
     </RelativeLayout>
 
     <FrameLayout
-        android:background="#FFF"
         android:layout_width="match_parent"
-        android:layout_height="100dp">
+        android:layout_height="100dp"
+        android:background="#FFF">
 
         <LinearLayout
             android:id="@+id/layoutActions"
@@ -183,9 +183,7 @@
                     android:gravity="center"
                     android:singleLine="true"
                     android:textColor="#000"
-                    tools:text="WRITE"
-
-                    />
+                    tools:text="WRITE" />
             </LinearLayout>
         </LinearLayout>
 
@@ -194,22 +192,34 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone"
+            android:layout_margin="16dp"
             tools:visibility="visible">
 
-            <EditText
-                android:id="@+id/etConstructiveFeedback"
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:inputType="textLongMessage|textAutoCorrect|textMultiLine|textCapSentences" />
+                android:hint="@string/hint_constructive_criticism">
 
-            <Button
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etConstructiveFeedback"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="textLongMessage|textAutoCorrect|textMultiLine|textCapSentences" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <ImageButton
+                android:paddingStart="16dp"
                 android:id="@+id/btnConstructiveFeedback"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_weight="0"
-                android:drawableEnd="@drawable/ic_send"
-                android:text="@string/send_constrictive_feedback" />
+                android:background="@null"
+                android:src="@drawable/ic_send"
+                android:text="@string/send_constrictive_feedback"
+                android:tint="@color/colorPrimary" />
         </LinearLayout>
     </FrameLayout>
 

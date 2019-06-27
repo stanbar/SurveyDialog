@@ -22,4 +22,5 @@
     <string name="enter_new_value">Enter new value</string>
     <string name="invalid_value">Invalid value</string>
     <string name="send_constrictive_feedback">send</string>
+    <string name="hint_constructive_criticism">Suggestion</string>
 </resources>
